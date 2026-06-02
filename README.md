@@ -19,9 +19,16 @@
 - **Field Control:** `include_details` flag on `epics.list` for minimal vs full field sets
 
 **Documentation:**
-- [TAIGA_MCP_ENHANCEMENTS.md](TAIGA_MCP_ENHANCEMENTS.md) – Comprehensive feature guide
-- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) – Examples and common patterns
-- [ENHANCEMENT_SUMMARY.md](ENHANCEMENT_SUMMARY.md) – Implementation summary
+- [docs/README.md](docs/README.md) – Project overview and quick start
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) – System architecture and components
+- [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md) – Complete MCP tools reference
+- [docs/ACTION_PROXY.md](docs/ACTION_PROXY.md) – REST API Action Proxy
+- [docs/CONFIGURATION.md](docs/CONFIGURATION.md) – Environment variables and setup
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) – Deployment instructions
+- [docs/EXAMPLES.md](docs/EXAMPLES.md) – Usage examples and scenarios
+- [docs/CLIENTS.md](docs/CLIENTS.md) – MCP client integrations
+- [TAIGA_MCP_ENHANCEMENTS.md](TAIGA_MCP_ENHANCEMENTS.md) – Original feature guide
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) – Original quick reference
 
 ---
 
