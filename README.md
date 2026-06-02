@@ -41,7 +41,7 @@ docker run -d --name taiga-mcp --env-file .env -p 8010:8000 taiga-mcp:latest
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app:app --host 127.0.0.1 --port 8010
+uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
 ### Конфигурация

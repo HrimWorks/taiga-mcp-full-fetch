@@ -113,7 +113,7 @@ docker run -d --name taiga-mcp \
 services:
   taiga-mcp:
     image: taiga-mcp:latest
-    ports: ["8010:8010"]
+    ports: ["8010:8000"]
     env_file: [".env"]
     restart: unless-stopped
 ```
@@ -125,7 +125,7 @@ az containerapp create \
   --name taiga-mcp \
   --resource-group $RG \
   --image taiga-mcp:latest \
-  --target-port 8010 \
+  --target-port 8000 \
   --ingress external
 
 # Секреты

@@ -78,6 +78,23 @@ def _destructive_enabled() -> bool:
     return _taiga_profile() == "builder"
 
 
+def _extract_tag_names(tags: list[Any]) -> set[str]:
+    """Extract tag names from Taiga's [[tag_name, color], ...] format into a set.
+
+    Taiga API returns tags as list-of-lists: [['ui', null], ['bug', '#ff0000']].
+    This helper normalizes both this format and plain string lists.
+    """
+    result: set[str] = set()
+    for t in tags:
+        if isinstance(t, (list, tuple)):
+            # Taiga format: ['tag_name', color]
+            if t and t[0]:
+                result.add(str(t[0]))
+        elif isinstance(t, str):
+            result.add(t)
+    return result
+
+
 DESTRUCTIVE_ENABLED = _destructive_enabled()
 
 
@@ -1931,7 +1948,7 @@ async def taiga_epics_update(
             payload["tags"] = [] if tags is None else tags
             has_updates = True
         elif add_tags is not UNSET and add_tags is not None:
-            existing_tags = set(existing.get("tags", []))
+            existing_tags = _extract_tag_names(existing.get("tags", []))
             new_tags = existing_tags | set(add_tags)
             payload["tags"] = sorted(new_tags)
             has_updates = True
@@ -2095,7 +2112,7 @@ async def taiga_issues_update(
             payload["tags"] = [] if tags is None else tags
             has_updates = True
         elif add_tags is not UNSET and add_tags is not None:
-            existing_tags = set(existing.get("tags", []))
+            existing_tags = _extract_tag_names(existing.get("tags", []))
             new_tags = existing_tags | set(add_tags)
             payload["tags"] = sorted(new_tags)
             has_updates = True
@@ -2391,7 +2408,7 @@ async def taiga_stories_update(
             payload["tags"] = [] if tags is None else tags
             has_updates = True
         elif add_tags is not UNSET and add_tags is not None:
-            existing_tags = set(existing.get("tags", []))
+            existing_tags = _extract_tag_names(existing.get("tags", []))
             new_tags = existing_tags | set(add_tags)
             payload["tags"] = sorted(new_tags)
             has_updates = True
@@ -2626,7 +2643,7 @@ async def taiga_tasks_update(
             payload["tags"] = [] if tags is None else tags
             has_updates = True
         elif add_tags is not UNSET and add_tags is not None:
-            existing_tags = set(existing.get("tags", []))
+            existing_tags = _extract_tag_names(existing.get("tags", []))
             new_tags = existing_tags | set(add_tags)
             payload["tags"] = sorted(new_tags)
             has_updates = True
@@ -2734,7 +2751,7 @@ async def taiga_tasks_archive_or_close(
         
         # Add archive tag if requested
         if add_archive_tag:
-            existing_tags = set(existing.get("tags", []))
+            existing_tags = _extract_tag_names(existing.get("tags", []))
             new_tags = existing_tags | {"archived-by-mcp"}
             payload["tags"] = sorted(new_tags)
         
@@ -2792,7 +2809,7 @@ async def taiga_stories_archive_or_close(
         
         # Add archive tag if requested
         if add_archive_tag:
-            existing_tags = set(existing.get("tags", []))
+            existing_tags = _extract_tag_names(existing.get("tags", []))
             new_tags = existing_tags | {"archived-by-mcp"}
             payload["tags"] = sorted(new_tags)
         

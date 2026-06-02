@@ -16,6 +16,7 @@ pytest-debug.log
 # Local environment configuration
 .env
 .env.*
+!.env.example
 
 # Editor settings
 .vscode/
