@@ -1652,7 +1652,7 @@ async def _delete_issue_action(request: Request) -> JSONResponse:
     name="taiga_projects_list",
     annotations=ToolAnnotations(openWorldHint=True, readOnlyHint=True, idempotentHint=True),
 )
-async def taiga_projects_list(search: str | None = None) -> list[dict[str, Any]]:
+async def taiga_projects_list(search: str | None = None) -> str:
     """Return the Taiga projects the service account can access."""
 
     async with get_taiga_client() as client:
@@ -1667,7 +1667,7 @@ async def taiga_projects_list(search: str | None = None) -> list[dict[str, Any]]
             if search.lower() not in name.lower():
                 continue
         filtered.append(_slice(project, keep))
-    return filtered
+    return json.dumps(filtered, ensure_ascii=False)
 
 
 @mcp.tool(
@@ -1766,7 +1766,7 @@ async def taiga_epics_list(
     include_details: bool = False,
     page: int | None = None,
     page_size: int | None = None,
-) -> list[dict[str, Any]]:
+) -> str:
     """List epics for a Taiga project with optional pagination and field control.
     
     Args:
@@ -1813,7 +1813,7 @@ async def taiga_epics_list(
     elif page_size is not None:
         epics = epics[:effective_page_size]
     
-    return [_slice(epic, keep) for epic in epics]
+    return json.dumps([_slice(epic, keep) for epic in epics], ensure_ascii=False)
 
 
 @mcp.tool(
@@ -2225,22 +2225,45 @@ async def taiga_stories_list(
     tags: list[str] | None = None,
     page: int | None = None,
     page_size: int | None = None,
-) -> list[dict[str, Any]]:
-    """List user stories for a Taiga project with optional filters (defaults to page_size=50)."""
+) -> str:
+    """List user stories for a Taiga project with optional filters.
 
-    # Apply pagination defaults to avoid large payloads
-    effective_page_size = min(page_size or 50, 100) if page_size else 50
-    
+    When page is not specified, automatically fetches all pages to return
+    the complete list. When page is specified, returns only that page.
+    """
+
     async with get_taiga_client() as client:
         resolved_project_id = await _require_project_id(client, project_id)
-        stories = await client.list_user_stories(
-            resolved_project_id,
-            epic=epic_id,
-            q=search,
-            tags=tags,
-            page=page,
-            page_size=effective_page_size,
-        )
+        if page is not None:
+            effective_page_size = min(page_size or 50, 100) if page_size else 50
+            stories = await client.list_user_stories(
+                resolved_project_id,
+                epic=epic_id,
+                q=search,
+                tags=tags,
+                page=page,
+                page_size=effective_page_size,
+            )
+        else:
+            all_stories: list[dict[str, Any]] = []
+            fetch_page_size = min(page_size or 100, 100) if page_size else 100
+            current_page = 1
+            while True:
+                batch = await client.list_user_stories(
+                    resolved_project_id,
+                    epic=epic_id,
+                    q=search,
+                    tags=tags,
+                    page=current_page,
+                    page_size=fetch_page_size,
+                )
+                if not batch:
+                    break
+                all_stories.extend(batch)
+                if len(batch) < fetch_page_size:
+                    break
+                current_page += 1
+            stories = all_stories
     keep = (
         "id",
         "ref",
@@ -2256,7 +2279,7 @@ async def taiga_stories_list(
         "created_date",
         "modified_date",
     )
-    return [_slice(story, keep) for story in stories]
+    return json.dumps([_slice(story, keep) for story in stories], ensure_ascii=False)
 
 
 @mcp.tool(
@@ -2797,7 +2820,11 @@ async def taiga_tasks_list(
     page: int | None | _UnsetType = UNSET,
     page_size: int | None | _UnsetType = UNSET,
 ) -> dict[str, Any]:
-    """List tasks with optional filters and pagination metadata."""
+    """List tasks with optional filters and pagination metadata.
+
+    When page is not specified, automatically fetches all pages to return
+    the complete list. When page is specified, returns only that page.
+    """
 
     project_filter = None if project_id is UNSET else project_id
     user_story_filter = None if user_story_id is UNSET else user_story_id
@@ -2822,15 +2849,38 @@ async def taiga_tasks_list(
             else:
                 resolved_status = status
 
-        tasks, pagination = await client.list_tasks(
-            project_id=project_filter,
-            user_story_id=user_story_filter,
-            assigned_to=assigned_filter,
-            search=search_filter,
-            status=resolved_status,
-            page=page_filter,
-            page_size=page_size_filter,
-        )
+        if page_filter is not None:
+            tasks, pagination = await client.list_tasks(
+                project_id=project_filter,
+                user_story_id=user_story_filter,
+                assigned_to=assigned_filter,
+                search=search_filter,
+                status=resolved_status,
+                page=page_filter,
+                page_size=page_size_filter,
+            )
+        else:
+            all_tasks: list[dict[str, Any]] = []
+            fetch_page_size = min(page_size_filter or 100, 100) if page_size_filter else 100
+            current_page = 1
+            while True:
+                batch, _ = await client.list_tasks(
+                    project_id=project_filter,
+                    user_story_id=user_story_filter,
+                    assigned_to=assigned_filter,
+                    search=search_filter,
+                    status=resolved_status,
+                    page=current_page,
+                    page_size=fetch_page_size,
+                )
+                if not batch:
+                    break
+                all_tasks.extend(batch)
+                if len(batch) < fetch_page_size:
+                    break
+                current_page += 1
+            tasks = all_tasks
+            pagination = {"total": len(all_tasks), "page": 1, "page_size": len(all_tasks), "total_pages": 1}
 
     keep = (
         "id",
@@ -2877,7 +2927,7 @@ async def taiga_tasks_get(task_id: int) -> dict[str, Any]:
 async def taiga_users_list(
     project_id: int | None | _UnsetType = UNSET,
     search: str | None | _UnsetType = UNSET,
-) -> list[dict[str, Any]]:
+) -> str:
     """List Taiga users to support ID resolution."""
 
     project_filter = None if project_id is UNSET else project_id
@@ -2913,7 +2963,7 @@ async def taiga_users_list(
             )
         ]
 
-    return results
+    return json.dumps(results, ensure_ascii=False)
 
 
 @mcp.tool(
@@ -2923,7 +2973,7 @@ async def taiga_users_list(
 async def taiga_milestones_list(
     project_id: int | None = None,
     search: str | None | _UnsetType = UNSET,
-) -> list[dict[str, Any]]:
+) -> str:
     """List milestones for a project with optional search filtering."""
 
     search_filter = None if search is UNSET else search
@@ -2953,7 +3003,7 @@ async def taiga_milestones_list(
                 continue
         filtered.append(entry)
 
-    return filtered
+    return json.dumps(filtered, ensure_ascii=False)
 
 
 async def healthz(_):
