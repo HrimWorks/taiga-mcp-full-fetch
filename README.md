@@ -1,3 +1,4 @@
+
 # Taiga MCP Server
 
 **Версия:** 1.1.0  
