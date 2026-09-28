@@ -21,3 +21,6 @@ pytest-debug.log
 # Editor settings
 .vscode/
 .idea/
+
+# Logging
+taiga-mcp.log

@@ -31,7 +31,7 @@ AI-ассистент → MCP (SSE/HTTP) → Taiga MCP Server → Taiga REST API
 ### Установка
 
 ```bash
-git clone https://github.com/kononeer/taiga-mcp-full-fetch.git
+git clone https://github.com/HrimWorks/taiga-mcp-full-fetch.git
 cd taiga-mcp-full-fetch
 
 # Вариант 1: Docker (рекомендуется)
@@ -122,7 +122,7 @@ curl http://localhost:8010/           # → Taiga MCP up
 
 MCP SDK разбивает Python-списки на отдельные `TextContent`. В этом форке исправлено — все list-инструменты возвращают `json.dumps()` вместо raw-списка. Если проблема сохраняется:
 
-1. Проверьте, что используется форк `kononeer/taiga-mcp-full-fetch`
+1. Проверьте, что используется форк `HrimWorks/taiga-mcp-full-fetch`
 2. Пересоберите образ: `docker build -t taiga-mcp:latest . && docker restart taiga-mcp`
 3. Перезапустите MCP-клиент (VS Code/OpenCode)
 

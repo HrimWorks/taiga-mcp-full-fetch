@@ -25,7 +25,7 @@
 Рекомендуется использовать форк с исправлениями багов, обнаруженных при интеграции:
 
 ```bash
-git clone https://github.com/kononeer/taiga-mcp-full-fetch.git
+git clone https://github.com/HrimWorks/taiga-mcp-full-fetch.git
 cd taiga-mcp-full-fetch
 ```
 
@@ -270,7 +270,7 @@ curl -s -X POST -H "X-Api-Key: $ACTION_PROXY_API_KEY" \
 
 **Причина:** MCP SDK Python разбивает возвращаемый Python-`list` на отдельные `TextContent` объекты. OpenCode берёт только первый.
 
-**Решение:** В форке все list-инструменты возвращают `json.dumps(result)` (строку), которую нужно парсить через `json.loads()`. Убедитесь, что используете форк `kononeer/taiga-mcp-full-fetch`.
+**Решение:** В форке все list-инструменты возвращают `json.dumps(result)` (строку), которую нужно парсить через `json.loads()`. Убедитесь, что используете форк `HrimWorks/taiga-mcp-full-fetch`.
 
 ### 8.3. "unhashable type: 'list'" при использовании add_tags
 
@@ -315,7 +315,7 @@ taiga-mcp/
 
 ## 10. Ссылки
 
-- **Форк с исправлениями:** https://github.com/kononeer/taiga-mcp-full-fetch
+- **Форк с исправлениями:** https://github.com/HrimWorks/taiga-mcp-full-fetch
 - **Upstream:** https://github.com/OFFSET3/taiga-mcp
 - **Taiga:** https://taiga.io/
 - **MCP Specification:** https://modelcontextprotocol.io/
