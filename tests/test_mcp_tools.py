@@ -26,6 +26,12 @@ class DummyToolClient:
                 {"id": 21, "name": "Doing", "slug": "doing"},
             ]
         }
+        self.roles: dict[int, list[dict[str, Any]]] = {
+            3: [{"id": 40, "name": "Developer", "slug": "developer", "order": 1}]
+        }
+        self.points: dict[int, list[dict[str, Any]]] = {
+            3: [{"id": 50, "name": "Small", "value": 2, "order": 1}]
+        }
         self.tasks: dict[int, dict[str, Any]] = {
             7: {
                 "id": 7,
@@ -116,6 +122,12 @@ class DummyToolClient:
 
     async def list_task_statuses(self, project_id: int) -> list[dict[str, Any]]:
         return list(self.task_statuses.get(project_id, []))
+
+    async def list_roles(self, project_id: int) -> list[dict[str, Any]]:
+        return list(self.roles.get(project_id, []))
+
+    async def list_points(self, project_id: int) -> list[dict[str, Any]]:
+        return list(self.points.get(project_id, []))
 
     async def create_task(self, payload: dict[str, Any]) -> dict[str, Any]:
         record = dict(payload)
@@ -223,6 +235,24 @@ async def test_taiga_stories_update_resolves_status(tool_client: DummyToolClient
     assert payload["tags"] == ["prior-art-miner"]
     assert payload["milestone"] == 4
     assert payload["custom_attributes"] == {"effort": 5}
+
+
+@pytest.mark.anyio("asyncio")
+async def test_taiga_stories_update_sets_estimation_points(tool_client: DummyToolClient):
+    await app.taiga_stories_update(user_story_id=5, points={"40": 50})
+
+    assert tool_client.updated_stories[-1] == (5, {"points": {"40": "50"}, "version": 4})
+
+
+@pytest.mark.anyio("asyncio")
+async def test_taiga_stories_estimation_options_returns_available_values(tool_client: DummyToolClient):
+    tool_client.stories[5]["points"] = {"40": "50"}
+
+    result = await app.taiga_stories_estimation_options(user_story_id=5)
+
+    assert result["current_points"] == {"40": "50"}
+    assert result["roles"][0]["id"] == 40
+    assert result["points"][0]["id"] == 50
 
 
 @pytest.mark.anyio("asyncio")
