@@ -64,6 +64,11 @@ tasks = result["tasks"]
 
 Получение задачи по ID.
 
+#### `taiga_stories_estimation_options(user_story_id)`
+
+Возвращает доступные роли, значения points и текущую оценку user story. Полученные
+идентификаторы передаются в `taiga_stories_update(points=...)`.
+
 #### `taiga_issues_get(issue_id)`
 
 Получение issue по ID.
@@ -115,7 +120,7 @@ task = json.loads(taiga_tasks_create(
 
 #### `taiga_stories_update(user_story_id, ...)`
 
-Параметры: `subject`, `description`, `append_description`, `status`, `tags`, `add_tags`, `assigned_to`, `epic_id`, `milestone_id`, `custom_attributes`, `version`.
+Параметры: `subject`, `description`, `append_description`, `status`, `tags`, `add_tags`, `assigned_to`, `epic_id`, `milestone_id`, `custom_attributes`, `points`, `version`. `points` — объект `{role_id: point_id | null}`; `null` очищает оценку роли.
 
 ```python
 # Добавить к описанию

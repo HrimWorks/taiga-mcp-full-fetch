@@ -2350,6 +2350,7 @@ async def taiga_stories_update(
     epic_id: int | None | _UnsetType = UNSET,
     milestone_id: int | None | _UnsetType = UNSET,
     custom_attributes: dict[str, Any] | None | _UnsetType = UNSET,
+    points: dict[str, int | None] | None | _UnsetType = UNSET,
     version: int | None | _UnsetType = UNSET,
 ) -> dict[str, Any]:
     """Update a Taiga user story with partial field semantics.
@@ -2413,6 +2414,18 @@ async def taiga_stories_update(
         if custom_attributes is not UNSET:
             payload["custom_attributes"] = custom_attributes
             has_updates = True
+        if points is not UNSET:
+            if points is None:
+                payload["points"] = None
+            else:
+                try:
+                    payload["points"] = {
+                        str(int(role_id)): None if point_id is None else str(int(point_id))
+                        for role_id, point_id in points.items()
+                    }
+                except (TypeError, ValueError):
+                    raise ValueError("points must map numeric role IDs to numeric point IDs or null") from None
+            has_updates = True
 
         if status is not UNSET:
             if status is None:
@@ -2448,6 +2461,36 @@ async def taiga_stories_update(
             raise
 
     return dict(updated)
+
+
+@mcp.tool(
+    name="taiga_stories_estimation_options",
+    annotations=ToolAnnotations(openWorldHint=True, readOnlyHint=True, idempotentHint=True),
+)
+async def taiga_stories_estimation_options(user_story_id: int) -> dict[str, Any]:
+    """Return the roles, point values, and current estimate for a user story.
+
+    Use the returned role and point IDs with taiga_stories_update(points=...).
+    """
+
+    async with get_taiga_client() as client:
+        story = await client.get_user_story(user_story_id)
+        try:
+            project_id = int(story.get("project"))
+        except (TypeError, ValueError):
+            raise TaigaAPIError("Unable to resolve project for story estimation") from None
+        roles = await client.list_roles(project_id)
+        available_points = await client.list_points(project_id)
+
+    return {
+        "user_story_id": user_story_id,
+        "user_story_version": story.get("version"),
+        "current_points": story.get("points", {}),
+        "roles": [_slice(role, ("id", "name", "slug", "order")) for role in roles],
+        "points": [
+            _slice(point, ("id", "name", "value", "order")) for point in available_points
+        ],
+    }
 
 
 async def taiga_stories_delete(user_story_id: int) -> dict[str, Any]:

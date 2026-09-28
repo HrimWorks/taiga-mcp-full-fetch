@@ -291,6 +291,14 @@ class TaigaClient:
         params = {"project": project_id}
         return await self._get_all_pages("/task-statuses", params=params)
 
+    async def list_roles(self, project_id: int) -> list[dict[str, Any]]:
+        """Return the estimation roles configured for a project."""
+        return await self._get_all_pages("/roles", params={"project": project_id})
+
+    async def list_points(self, project_id: int) -> list[dict[str, Any]]:
+        """Return the estimation point values configured for a project."""
+        return await self._get_all_pages("/points", params={"project": project_id})
+
     async def create_user_story(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         data = await self._request("POST", "/userstories", json=payload)
         return dict(data)
