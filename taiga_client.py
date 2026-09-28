@@ -22,6 +22,14 @@ def _safe_json(response: Response) -> Any | None:
 
 def _extract_pagination(headers: Mapping[str, str]) -> dict[str, Any]:
     mapping = {
+        # Taiga's current pagination headers.
+        "x-pagination-current": "page",
+        "x-paginated-by": "page_size",
+        "x-pagination-count": "total",
+        "x-pagination-next": "next",
+        "x-pagination-prev": "previous",
+        # Older deployments used these names. Keep accepting them so that the
+        # client remains compatible with self-hosted Taiga installations.
         "x-pagination-page": "page",
         "x-pagination-page-size": "page_size",
         "x-pagination-total": "total",
@@ -31,6 +39,9 @@ def _extract_pagination(headers: Mapping[str, str]) -> dict[str, Any]:
     for header_name, field in mapping.items():
         value = headers.get(header_name)
         if value is None:
+            continue
+        if field in {"next", "previous"} and value.strip().lower() in {"", "none", "null"}:
+            pagination[field] = None
             continue
         try:
             pagination[field] = int(value)
@@ -143,6 +154,19 @@ class TaigaClient:
         params: QueryParamTypes | None = None,
         json: Mapping[str, Any] | None = None,
     ) -> Any:
+        response = await self._request_response(method, path, params=params, json=json)
+        if response.content:
+            return response.json()
+        return None
+
+    async def _request_response(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: QueryParamTypes | None = None,
+        json: Mapping[str, Any] | None = None,
+    ) -> Response:
         path = path.lstrip("/")
         response = await self._client.request(method, path, params=params, json=json)
         try:
@@ -154,17 +178,54 @@ class TaigaClient:
                 status_code=exc.response.status_code,
                 payload=_safe_json(exc.response),
             ) from exc
-        if response.content:
-            return response.json()
-        return None
+        return response
+
+    async def _get_all_pages(
+        self,
+        path: str,
+        *,
+        params: QueryParamTypes | None = None,
+        page_size: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Return every page from a Taiga list endpoint.
+
+        Taiga returns 404 for a page beyond the final page. Therefore the
+        loop deliberately follows ``x-pagination-next`` instead of guessing
+        from the number of records in a response.
+        """
+
+        page = 1
+        all_items: list[dict[str, Any]] = []
+        base_params = (
+            [(key, value) for key, value in httpx.QueryParams(params).multi_items() if key not in {"page", "page_size"}]
+            if params
+            else []
+        )
+
+        while True:
+            response = await self._request_response(
+                "GET",
+                path,
+                params=[*base_params, ("page", page), ("page_size", page_size)],
+            )
+            data = response.json() if response.content else []
+            if not isinstance(data, list):
+                raise TaigaAPIError(f"Taiga API returned a non-list response for {path}")
+            all_items.extend(data)
+
+            next_page = _extract_pagination(response.headers).get("next")
+            if next_page is None:
+                return all_items
+            if not isinstance(next_page, int) or next_page <= page:
+                raise TaigaAPIError(f"Taiga API returned invalid pagination metadata for {path}")
+            page = next_page
 
     async def list_projects(
         self,
         *,
         params: QueryParamTypes | None = None,
     ) -> list[dict[str, Any]]:
-        data = await self._request("GET", "/projects", params=params)
-        return list(data)
+        return await self._get_all_pages("/projects", params=params)
 
     async def get_current_user_id(self) -> int:
         if self._user_id is not None:
@@ -192,8 +253,7 @@ class TaigaClient:
 
     async def list_epics(self, project_id: int) -> list[dict[str, Any]]:
         params = {"project": project_id}
-        data = await self._request("GET", "/epics", params=params)
-        return list(data)
+        return await self._get_all_pages("/epics", params=params)
 
     async def list_user_stories(
         self,
@@ -218,18 +278,18 @@ class TaigaClient:
         if page_size is not None:
             params.append(("page_size", page_size))
 
+        if page is None:
+            return await self._get_all_pages("/userstories", params=params, page_size=page_size or 100)
         data = await self._request("GET", "/userstories", params=params)
         return list(data)
 
     async def list_user_story_statuses(self, project_id: int) -> list[dict[str, Any]]:
         params = {"project": project_id}
-        data = await self._request("GET", "/userstory-statuses", params=params)
-        return list(data)
+        return await self._get_all_pages("/userstory-statuses", params=params)
 
     async def list_task_statuses(self, project_id: int) -> list[dict[str, Any]]:
         params = {"project": project_id}
-        data = await self._request("GET", "/task-statuses", params=params)
-        return list(data)
+        return await self._get_all_pages("/task-statuses", params=params)
 
     async def create_user_story(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         data = await self._request("POST", "/userstories", json=payload)
@@ -315,15 +375,7 @@ class TaigaClient:
         if page_size is not None:
             params.append(("page_size", page_size))
 
-        response = await self._client.get("/tasks", params=params or None)
-        try:
-            response.raise_for_status()
-        except httpx.HTTPStatusError as exc:  # pragma: no cover - error details for humans
-            raise TaigaAPIError(
-                f"Taiga API request failed with status {exc.response.status_code}: {exc.response.text}",
-                status_code=exc.response.status_code,
-                payload=_safe_json(exc.response),
-            ) from exc
+        response = await self._request_response("GET", "/tasks", params=params or None)
 
         pagination = _extract_pagination(response.headers)
         data = response.json() if response.content else []
@@ -356,17 +408,14 @@ class TaigaClient:
         if project_id is not None:
             params.append(("project", project_id))
 
-        data = await self._request("GET", "/users", params=params or None)
-        return list(data)
+        return await self._get_all_pages("/users", params=params or None)
 
     async def list_project_users(self, project_id: int) -> list[dict[str, Any]]:
-        data = await self._request("GET", f"/projects/{project_id}/users")
-        return list(data)
+        return await self._get_all_pages(f"/projects/{project_id}/users")
 
     async def list_milestones(self, project_id: int) -> list[dict[str, Any]]:
         params = {"project": project_id}
-        data = await self._request("GET", "/milestones", params=params)
-        return list(data)
+        return await self._get_all_pages("/milestones", params=params)
 
 
 @asynccontextmanager

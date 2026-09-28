@@ -2262,25 +2262,14 @@ async def taiga_stories_list(
                 page_size=effective_page_size,
             )
         else:
-            all_stories: list[dict[str, Any]] = []
             fetch_page_size = min(page_size or 100, 100) if page_size else 100
-            current_page = 1
-            while True:
-                batch = await client.list_user_stories(
-                    resolved_project_id,
-                    epic=epic_id,
-                    q=search,
-                    tags=tags,
-                    page=current_page,
-                    page_size=fetch_page_size,
-                )
-                if not batch:
-                    break
-                all_stories.extend(batch)
-                if len(batch) < fetch_page_size:
-                    break
-                current_page += 1
-            stories = all_stories
+            stories = await client.list_user_stories(
+                resolved_project_id,
+                epic=epic_id,
+                q=search,
+                tags=tags,
+                page_size=fetch_page_size,
+            )
     keep = (
         "id",
         "ref",
@@ -2881,7 +2870,7 @@ async def taiga_tasks_list(
             fetch_page_size = min(page_size_filter or 100, 100) if page_size_filter else 100
             current_page = 1
             while True:
-                batch, _ = await client.list_tasks(
+                batch, batch_pagination = await client.list_tasks(
                     project_id=project_filter,
                     user_story_id=user_story_filter,
                     assigned_to=assigned_filter,
@@ -2890,12 +2879,13 @@ async def taiga_tasks_list(
                     page=current_page,
                     page_size=fetch_page_size,
                 )
-                if not batch:
-                    break
                 all_tasks.extend(batch)
-                if len(batch) < fetch_page_size:
+                next_page = batch_pagination.get("next")
+                if next_page is None:
                     break
-                current_page += 1
+                if not isinstance(next_page, int) or next_page <= current_page:
+                    raise TaigaAPIError("Taiga API returned invalid task pagination metadata")
+                current_page = next_page
             tasks = all_tasks
             pagination = {"total": len(all_tasks), "page": 1, "page_size": len(all_tasks), "total_pages": 1}
 
